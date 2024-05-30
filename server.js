@@ -235,12 +235,40 @@ wss.on("connection", (ws, req) => {
           handleConnectionRequest(receiverId, senderName);
           break;
         case "connectionResponse":
-          // Gérer la réponse du destinataire à la demande de connexion
-          handleConnectionResponse(data.initiateurName, data.accepted);
+          const { initiateurName, accepted } = data;
+          const initiateurSocket = clients.get(initiateurName);
+          if (initiateurSocket) {
+            initiateurSocket.send(
+                JSON.stringify({ type: "connectionResponse", accepted, initiateurName })
+            );
+          }
           break;
-        case "screenShareRequest":
-          // Gérer la demande de partage d'écran
-          handleScreenShareRequest(clientName, data.ID);
+        case "screenShareOffer":
+          const { offer, senderName: sender } = data;
+          const receiverSocket2 = clients.get(sender);
+          if (receiverSocket2) {
+            receiverSocket2.send(
+                JSON.stringify({ type: "screenShareOffer", offer, senderName: sender })
+            );
+          }
+          break;
+        case "screenShareAnswer":
+          const { answer, receiverName } = data;
+          const senderSocket = clients.get(receiverName);
+          if (senderSocket) {
+            senderSocket.send(
+                JSON.stringify({ type: "screenShareAnswer", answer })
+            );
+          }
+          break;
+        case "iceCandidate":
+          const { candidate, receiverName: receiver } = data;
+          const receiverSocket3 = clients.get(receiver);
+          if (receiverSocket3) {
+            receiverSocket3.send(
+                JSON.stringify({ type: "iceCandidate", candidate })
+            );
+          }
           break;
         // Ajoutez d'autres types de messages si nécessaire
         default:
@@ -277,38 +305,7 @@ function handleConnectionRequest(receiverId, senderName) {
             },
           })
         );
-        /*const { initiateur_nom, destinataire_nom } = initiatorInfo;
 
-        // Envoyer la réponse de connexion à l'adresse IP de l'initiateur via WebSocket
-        sendConnectionResponse(initiateur_nom, accepted)
-          .then(() => {
-            // Mettre à jour l'état de la connexion dans la base de données
-            updateConnectionStatus(ID, accepted)
-              .then(() => {
-                console.log(
-                  `Connexion ${
-                    accepted ? "acceptée" : "refusée"
-                  } pour l'ID ${ID}`
-                );
-              })
-              .catch((error) => {
-                console.error(
-                  "Erreur lors de la mise à jour de l'état de la connexion :",
-                  error
-                );
-              });
-          })
-          .catch((error) => {
-            console.error(
-              "Erreur lors de l'envoi de la réponse de connexion :",
-              error
-            );
-          });
-
-        // Si la connexion est acceptée, démarrer le partage d'écran
-        if (accepted) {
-          startScreenSharing(destinataire_nom, initiateur_nom);
-        }*/
       } else {
         console.error(
           `Impossible de trouver les informations de connexion pour l'ID ${ID}`
@@ -343,19 +340,6 @@ function sendConnectionResponse(initiatorName, accepted) {
   });
 }
 
-// Fonction pour mettre à jour l'état de la connexion dans la base de données
-function updateConnectionStatus(ID, accepted) {
-  return new Promise((resolve, reject) => {
-    const query = "UPDATE Connexion SET acceptee = ? WHERE initiateur_id = ?";
-    connection.query(query, [accepted, ID], (err, result) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
 
 // Fonction pour récupérer les informations de connexion du receveur
 function getConnectionReceiverInfo(receiverId) {
