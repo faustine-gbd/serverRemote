@@ -52,7 +52,7 @@ app.post("/demande-identifiants", (req, res) => {
 });
 
 // Route pour recevoir les demandes de connexion
-app.post("/connexion", (req, res) => {
+/*app.post("/connexion", (req, res) => {
   const { random_id } = req.body;
 
   // Rechercher les informations de l'ordinateur dans la base de données
@@ -92,7 +92,7 @@ app.post("/connexion", (req, res) => {
           "Une erreur est survenue lors de la recherche des informations d'ordinateur.",
       });
     });
-});
+});*/
 
 /* // Envoyer la demande de connexion à l'adresse IP du destinataire via WebSocket
         sendConnectionRequest(nom_pc, random_id)
@@ -229,6 +229,11 @@ wss.on("connection", (ws, req) => {
 
           console.log(`Nouvelle connexion depuis ${clientName}`);
           break;
+        case "connexion-request-from-sender":
+          console.log(`Demande de connexion :  ${data}`);
+          const { receiverId, senderName } = data.data;
+          handleConnectionRequest(receiverId, senderName);
+          break;
         case "connectionResponse":
           // Gérer la réponse du destinataire à la demande de connexion
           handleConnectionResponse(data.initiateurName, data.accepted);
@@ -248,18 +253,31 @@ wss.on("connection", (ws, req) => {
 
   // Gérer la déconnexion du client
   ws.on("close", () => {
-    console.log(`Client ${clientName} déconnecté`);
+    console.log(`Client  déconnecté`);
     clients.delete(clientName);
   });
 });
 
 // Fonction pour gérer la réponse du destinataire à la demande de connexion
-function handleConnectionResponse(initiateurName, accepted) {
+function handleConnectionRequest(receiverId, senderName) {
   // Rechercher les informations de connexion de l'initiateur dans la base de données
-  getConnectionInitiatorInfo(initiateurName)
-    .then((initiatorInfo) => {
-      if (initiatorInfo) {
-        const { initiateur_nom, destinataire_nom } = initiatorInfo;
+  getConnectionReceiverInfo(receiverId)
+    .then((receiverInfo) => {
+      if (receiverInfo) {
+        console.log("receiverInfo :", receiverInfo);
+
+        const { nom_pc } = receiverInfo;
+        const receiverWs = clients.get(nom_pc);
+        receiverWs.send(
+          JSON.stringify({
+            type: "connexion-request-to-receiver",
+            data: {
+              receiverName: nom_pc,
+              senderName,
+            },
+          })
+        );
+        /*const { initiateur_nom, destinataire_nom } = initiatorInfo;
 
         // Envoyer la réponse de connexion à l'adresse IP de l'initiateur via WebSocket
         sendConnectionResponse(initiateur_nom, accepted)
@@ -290,7 +308,7 @@ function handleConnectionResponse(initiateurName, accepted) {
         // Si la connexion est acceptée, démarrer le partage d'écran
         if (accepted) {
           startScreenSharing(destinataire_nom, initiateur_nom);
-        }
+        }*/
       } else {
         console.error(
           `Impossible de trouver les informations de connexion pour l'ID ${ID}`
@@ -339,12 +357,11 @@ function updateConnectionStatus(ID, accepted) {
   });
 }
 
-// Fonction pour récupérer les informations de connexion de l'initiateur
-function getConnectionInitiatorInfo(ID) {
+// Fonction pour récupérer les informations de connexion du receveur
+function getConnectionReceiverInfo(receiverId) {
   return new Promise((resolve, reject) => {
-    const query =
-      "SELECT initiateur_nom, destinataire_nom FROM Connexion WHERE initiateur_id = ?";
-    connection.query(query, [ID], (err, result) => {
+    const query = "SELECT nom_pc FROM Client WHERE random_id = ?";
+    connection.query(query, [receiverId], (err, result) => {
       if (err) {
         reject(err);
       } else {
