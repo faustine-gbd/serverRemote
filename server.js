@@ -88,9 +88,11 @@ function getComputerInfo(randomId) {
   });
 }
 
-
 // Gérer les connexions entrantes sur le serveur WebSocket
 wss.on("connection", (ws, req) => {
+  // Stocker le nom du client pour cette connexion WebSocket
+  let clientName = null;
+
   // Gérer les messages reçus du client
   ws.on("message", (message) => {
     try {
@@ -99,32 +101,35 @@ wss.on("connection", (ws, req) => {
         case "register":
           const clientName = data.nomPc;
           clients.set(clientName, ws);
+          console.log("clientName", clientName);
           console.log(`Nouvelle connexion depuis ${clientName}`);
           break;
         case "connexion-request-from-sender":
-          console.log(`Demande de connexion :  ${data}`);
           handleConnectionRequest(data.data);
           break;
         case "connexion-request-response":
-          console.log(`Retour :  ${data}`);
+          console.log("clients", Array.from(clients.keys()));
+          console.log(`Retour :  ${JSON.stringify(data)}`);
           handleConnexionRequestResponse(data.data);
           break;
         case "offer-from-sender":
-          console.log('routing offer')
+          console.log("routing offer");
           // send to the electron app
-          handleOffer(data.data)
+          handleOffer(data.data);
           break;
         case "answer":
-          console.log('routing answer')
+          console.log("routing answer");
           // send to the electron app
-          handleAnswer(data.data)
+          handleAnswer(data.data);
           break;
         case "ice-candidate":
-          console.log('ice-candidate : ', data.data)
-          ws.send(JSON.stringify({ type: 'ice-candidate', candidate: data.candidate }))
+          console.log("ice-candidate : ", data.data);
+          ws.send(
+            JSON.stringify({ type: "ice-candidate", candidate: data.candidate })
+          );
           break;
         case "control":
-          handleControl(data.data)
+          handleControl(data.data);
           break;
         // Ajoutez d'autres types de messages si nécessaire
         default:
@@ -146,7 +151,8 @@ wss.on("connection", (ws, req) => {
 function handleConnectionRequest(data) {
   const { receiverId, senderName } = data;
   // Rechercher les informations de connexion de l'initiateur dans la base de données
-  getClientInfo(receiverId).then((receiverInfo) => {
+  getClientInfo(receiverId)
+    .then((receiverInfo) => {
       if (receiverInfo) {
         console.log("receiverInfo :", receiverInfo);
         const { nom_pc } = receiverInfo;
@@ -175,26 +181,40 @@ function handleConnectionRequest(data) {
 }
 function handleConnexionRequestResponse(data) {
   const { receiverName, senderName, requestAccepted } = data;
-  const senderWs = clients.get(senderName)
-  senderWs.send(JSON.stringify({ type: 'connexion-request-response-to-client', data: {receiverName, senderName, requestAccepted} }));
+  console.log("clients", Array.from(clients.keys()));
+  console.log("receiverName", receiverName);
+  const receiverWs = clients.get(receiverName);
+
+ /* console.log("senderWs", senderWs);*/
+  console.log({ receiverName, senderName, requestAccepted });
+  receiverWs.send(
+    JSON.stringify({
+      type: "connexion-request-response-to-client",
+      data: { receiverName, senderName, requestAccepted },
+    })
+  );
 }
 
 function handleOffer(data) {
   const { receiverId, senderName, offer } = data;
-  const senderWs = clients.get(senderName)
-  senderWs.send(JSON.stringify({ type: 'offer', data: {receiverId, senderName, offer} }));
+  const senderWs = clients.get(senderName);
+  senderWs.send(
+    JSON.stringify({ type: "offer", data: { receiverId, senderName, offer } })
+  );
 }
 
 function handleAnswer(data) {
   const { receiverId, senderName, answer } = data;
-  const senderWs = clients.get(senderName)
-  senderWs.send(JSON.stringify({ type: 'answer', data: {receiverId, senderName, answer} }));
+  const senderWs = clients.get(senderName);
+  senderWs.send(
+    JSON.stringify({ type: "answer", data: { receiverId, senderName, answer } })
+  );
 }
 
 function handleControl(data) {
   const { receiverId, senderName, answer } = data;
-  const senderWs = clients.get(senderName)
-  senderWs.send(JSON.stringify({ type: 'control', data }));
+  const senderWs = clients.get(senderName);
+  senderWs.send(JSON.stringify({ type: "control", data }));
 }
 
 // Fonction pour envoyer la réponse de connexion à l'adresse IP de l'initiateur
@@ -216,7 +236,6 @@ function sendConnectionResponse(initiatorName, accepted) {
     }
   });
 }
-
 
 // Fonction pour récupérer les informations de connexion du receveur
 function getClientInfo(clientId) {
