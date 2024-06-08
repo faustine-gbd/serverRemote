@@ -176,7 +176,7 @@ function handleConnectionRequest(data) {
 function handleConnexionRequestResponse(data) {
   const { receiverName, senderName, requestAccepted } = data;
   const senderWs = clients.get(senderName)
-  senderWs.send(JSON.stringify({ type: 'connexion-request-response', data: {receiverName, senderName, requestAccepted} }));
+  senderWs.send(JSON.stringify({ type: 'connexion-request-response-to-client', data: {receiverName, senderName, requestAccepted} }));
 }
 
 function handleOffer(data) {
