@@ -99,12 +99,15 @@ wss.on("connection", (ws, req) => {
         case "register":
           const clientName = data.nomPc;
           clients.set(clientName, ws);
-
           console.log(`Nouvelle connexion depuis ${clientName}`);
           break;
         case "connexion-request-from-sender":
           console.log(`Demande de connexion :  ${data}`);
           handleConnectionRequest(data.data);
+          break;
+        case "connexion-request-response":
+          console.log(`Retour :  ${data}`);
+          handleConnexionRequestResponse(data.data);
           break;
         case "offer-from-sender":
           console.log('routing offer')
@@ -143,11 +146,9 @@ wss.on("connection", (ws, req) => {
 function handleConnectionRequest(data) {
   const { receiverId, senderName } = data;
   // Rechercher les informations de connexion de l'initiateur dans la base de données
-  getClientInfo(receiverId)
-    .then((receiverInfo) => {
+  getClientInfo(receiverId).then((receiverInfo) => {
       if (receiverInfo) {
         console.log("receiverInfo :", receiverInfo);
-
         const { nom_pc } = receiverInfo;
         const receiverWs = clients.get(nom_pc);
         receiverWs.send(
@@ -159,7 +160,6 @@ function handleConnectionRequest(data) {
             },
           })
         );
-
       } else {
         console.error(
           `Impossible de trouver les informations de connexion pour l'ID ${ID}`
@@ -173,19 +173,23 @@ function handleConnectionRequest(data) {
       );
     });
 }
+function handleConnexionRequestResponse(data) {
+  const { receiverId, senderName, requestAccepted } = data;
+  const senderWs = clients.get(senderName)
+  senderWs.send(JSON.stringify({ type: 'connexion-request-response', data: {receiverId, senderName, requestAccepted} }));
+}
 
 function handleOffer(data) {
   const { receiverId, senderName, offer } = data;
   const senderWs = clients.get(senderName)
   senderWs.send(JSON.stringify({ type: 'offer', data: {receiverId, senderName, offer} }));
 }
+
 function handleAnswer(data) {
   const { receiverId, senderName, answer } = data;
   const senderWs = clients.get(senderName)
   senderWs.send(JSON.stringify({ type: 'answer', data: {receiverId, senderName, answer} }));
 }
-
-
 
 function handleControl(data) {
   const { receiverId, senderName, answer } = data;
